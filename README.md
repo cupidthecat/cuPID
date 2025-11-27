@@ -87,3 +87,4 @@ See [LICENSE](LICENSE) for details.
 ## Author
 
 Written by @frankischilling
+
