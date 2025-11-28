@@ -84,6 +84,75 @@ The Makefile supports the following targets:
 
 See [LICENSE](LICENSE) for details.
 
+## Todo List
+
+### CPU Information
+- [ ] Display CPU model name and architecture
+- [ ] Show CPU cores (physical and logical)
+- [ ] Display current CPU frequency
+- [ ] Show CPU usage percentage (overall and per-core)
+- [ ] Display CPU temperature (if available)
+- [ ] Show CPU load average (1min, 5min, 15min)
+- [ ] Display CPU cache information (L1, L2, L3)
+- [ ] Show CPU flags/features
+
+### Memory Information
+- [ ] Display total system memory (RAM)
+- [ ] Show used memory and percentage
+- [ ] Display available/free memory
+- [ ] Show cached memory
+- [ ] Display buffer memory
+- [ ] Show swap space (total, used, free)
+- [ ] Display memory usage per process
+- [ ] Show shared memory information
+- [ ] Display memory pressure/stress indicators
+
+### Disk Information
+- [ ] List all mounted filesystems
+- [ ] Display disk usage per filesystem (total, used, free, percentage)
+- [ ] Show disk I/O statistics (read/write rates)
+- [ ] Display disk I/O operations per second (IOPS)
+- [ ] Show disk temperature (if available)
+- [ ] Display disk health status (SMART data if available)
+- [ ] List block devices and their sizes
+- [ ] Show disk mount points and filesystem types
+- [ ] Display inode usage per filesystem
+
+### Network Information
+- [ ] List all network interfaces
+- [ ] Display network interface status (up/down)
+- [ ] Show network interface IP addresses (IPv4 and IPv6)
+- [ ] Display network interface MAC addresses
+- [ ] Show network traffic statistics (bytes sent/received)
+- [ ] Display network packet statistics (packets sent/received, errors, drops)
+- [ ] Show network connection states (ESTABLISHED, LISTEN, etc.)
+- [ ] Display active network connections with process information
+- [ ] Show network interface speed and duplex mode
+- [ ] Display routing table information
+- [ ] Show DNS configuration
+
+### Program/Process Lists (Detailed)
+- [ ] Display process list with PID, PPID, user, command
+- [ ] Show process CPU usage percentage
+- [ ] Display process memory usage (RSS, VMS, shared)
+- [ ] Show process state (running, sleeping, zombie, etc.)
+- [ ] Display process priority and nice value
+- [ ] Show process start time and runtime
+- [ ] Display process command line arguments
+- [ ] Show process environment variables
+- [ ] Display process file descriptors count
+- [ ] Show process threads count
+- [ ] Display process parent-child relationships (tree view)
+- [ ] Show process network connections
+- [ ] Display process open files
+- [ ] Show process resource limits
+- [ ] Display process signal handlers
+- [ ] Implement process filtering and searching
+- [ ] Add process sorting options (by CPU, memory, PID, etc.)
+- [ ] Implement process killing/termination functionality
+- [ ] Show process I/O statistics (read/write bytes)
+- [ ] Display process context switches
+
 ## Author
 
 Written by @frankischilling
