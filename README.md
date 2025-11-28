@@ -86,17 +86,31 @@ See [LICENSE](LICENSE) for details.
 
 ## Todo List
 
-### CPU Information
+### Phase 1: Core Process Management (Priority: HIGHEST) 🔴
+**Foundation for a process manager - must be done first**
+
+- [ ] Display process list with PID, PPID, user, command
+- [ ] Show process CPU usage percentage
+- [ ] Display process memory usage (RSS, VMS)
+- [ ] Show process state (running, sleeping, zombie, etc.)
+- [ ] Implement basic ncurses UI layout (panels/windows for process list)
+- [ ] Add keyboard navigation (arrow keys, page up/down)
+- [ ] Implement process killing/termination functionality (SIGTERM, SIGKILL)
+- [ ] Add process sorting options (by CPU, memory, PID, name)
+- [ ] Display process start time and runtime
+- [ ] Show process priority and nice value
+
+### Phase 2: System Overview (Priority: HIGH) 🟠
+**Essential system information for monitoring**
+
+#### CPU Information
 - [ ] Display CPU model name and architecture
 - [ ] Show CPU cores (physical and logical)
-- [ ] Display current CPU frequency
 - [ ] Show CPU usage percentage (overall and per-core)
-- [ ] Display CPU temperature (if available)
 - [ ] Show CPU load average (1min, 5min, 15min)
-- [ ] Display CPU cache information (L1, L2, L3)
-- [ ] Show CPU flags/features
+- [ ] Display current CPU frequency
 
-### Memory Information
+#### Memory Information
 - [ ] Display total system memory (RAM)
 - [ ] Show used memory and percentage
 - [ ] Display available/free memory
@@ -104,21 +118,44 @@ See [LICENSE](LICENSE) for details.
 - [ ] Display buffer memory
 - [ ] Show swap space (total, used, free)
 - [ ] Display memory usage per process
+
+### Phase 3: Enhanced Process Details (Priority: MEDIUM) 🟡
+**Advanced process information and management**
+
+- [ ] Implement process filtering and searching
+- [ ] Display process parent-child relationships (tree view)
+- [ ] Show process threads count
+- [ ] Display process command line arguments
+- [ ] Show process network connections
+- [ ] Display process open files
+- [ ] Show process I/O statistics (read/write bytes)
+- [ ] Display process file descriptors count
+- [ ] Show process shared memory information
+
+### Phase 4: Advanced System Information (Priority: MEDIUM-LOW) 🟢
+**Additional system monitoring features**
+
+#### Advanced CPU Information
+- [ ] Display CPU temperature (if available)
+- [ ] Display CPU cache information (L1, L2, L3)
+- [ ] Show CPU flags/features
+
+#### Advanced Memory Information
 - [ ] Show shared memory information
 - [ ] Display memory pressure/stress indicators
 
-### Disk Information
+#### Disk Information
 - [ ] List all mounted filesystems
 - [ ] Display disk usage per filesystem (total, used, free, percentage)
 - [ ] Show disk I/O statistics (read/write rates)
 - [ ] Display disk I/O operations per second (IOPS)
-- [ ] Show disk temperature (if available)
-- [ ] Display disk health status (SMART data if available)
 - [ ] List block devices and their sizes
 - [ ] Show disk mount points and filesystem types
 - [ ] Display inode usage per filesystem
+- [ ] Show disk temperature (if available)
+- [ ] Display disk health status (SMART data if available)
 
-### Network Information
+#### Network Information
 - [ ] List all network interfaces
 - [ ] Display network interface status (up/down)
 - [ ] Show network interface IP addresses (IPv4 and IPv6)
@@ -131,29 +168,14 @@ See [LICENSE](LICENSE) for details.
 - [ ] Display routing table information
 - [ ] Show DNS configuration
 
-### Program/Process Lists (Detailed)
-- [ ] Display process list with PID, PPID, user, command
-- [ ] Show process CPU usage percentage
-- [ ] Display process memory usage (RSS, VMS, shared)
-- [ ] Show process state (running, sleeping, zombie, etc.)
-- [ ] Display process priority and nice value
-- [ ] Show process start time and runtime
-- [ ] Display process command line arguments
+### Phase 5: Advanced Process Features (Priority: LOW) 🔵
+**Nice-to-have advanced process details**
+
 - [ ] Show process environment variables
-- [ ] Display process file descriptors count
-- [ ] Show process threads count
-- [ ] Display process parent-child relationships (tree view)
-- [ ] Show process network connections
-- [ ] Display process open files
 - [ ] Show process resource limits
 - [ ] Display process signal handlers
-- [ ] Implement process filtering and searching
-- [ ] Add process sorting options (by CPU, memory, PID, etc.)
-- [ ] Implement process killing/termination functionality
-- [ ] Show process I/O statistics (read/write bytes)
 - [ ] Display process context switches
 
 ## Author
 
 Written by @frankischilling
-
