@@ -86,6 +86,56 @@ See [LICENSE](LICENSE) for details.
 
 ## Todo List
 
+### Phase 0: Configuration System (Priority: HIGHEST) 🔴
+**Foundation for configurable behavior - must be done early**
+
+#### Core Configuration Infrastructure
+- [ ] Create config structure/struct to hold all config values
+- [ ] Implement config loading and parsing using cupidconf_get()
+- [ ] Add default values for all configuration options
+- [ ] Implement config validation (check valid values, ranges, etc.)
+- [ ] Add error handling for missing/invalid config values
+- [ ] Create helper functions to read config values with defaults
+- [ ] Add config file path resolution (handle ~ expansion via cupidconf)
+
+#### Basic Configuration Options
+- [ ] `refresh_rate` - Update interval in milliseconds (default: 1000)
+- [ ] `default_sort` - Default sort column (cpu, memory, pid, name) (default: cpu)
+- [ ] `sort_reverse` - Default sort order (true/false) (default: false)
+- [ ] `show_header` - Show column headers (true/false) (default: true)
+- [ ] `color_enabled` - Enable color output (true/false) (default: true)
+- [ ] `max_processes` - Maximum number of processes to display (default: 0 = unlimited)
+
+#### UI Configuration Options
+- [ ] `ui_layout` - Layout style (compact, detailed, minimal) (default: detailed)
+- [ ] `show_cpu_panel` - Show CPU information panel (true/false) (default: true)
+- [ ] `show_memory_panel` - Show memory information panel (true/false) (default: true)
+- [ ] `panel_height` - Height of system info panels (default: 3)
+- [ ] `process_list_height` - Height of process list window (default: auto)
+
+#### Process Display Configuration
+- [ ] `columns` - Comma-separated list of columns to display (default: pid,user,cpu,mem,command)
+- [ ] `default_filter` - Default process filter pattern (default: empty = all)
+- [ ] `show_threads` - Show thread count per process (true/false) (default: false)
+- [ ] `tree_view_default` - Default tree view state (expanded/collapsed/flat) (default: flat)
+- [ ] `highlight_selected` - Highlight selected process (true/false) (default: true)
+
+#### System Monitoring Configuration
+- [ ] `cpu_show_per_core` - Show per-core CPU usage (true/false) (default: false)
+- [ ] `memory_units` - Memory display units (KB, MB, GB, auto) (default: auto)
+- [ ] `show_swap` - Show swap space information (true/false) (default: true)
+- [ ] `disk_enabled` - Enable disk monitoring (true/false) (default: false)
+- [ ] `network_enabled` - Enable network monitoring (true/false) (default: false)
+
+#### Advanced Configuration Features
+- [ ] Implement config file hot reload (watch file for changes, reload on SIGHUP)
+- [ ] Add config command-line override (--config option)
+- [ ] Add config validation on startup with helpful error messages
+- [ ] Create default config file template with comments
+- [ ] Document all configuration options in README
+- [ ] Add config option for log file path (if logging is added)
+- [ ] Add config option for key bindings customization
+
 ### Phase 1: Core Process Management (Priority: HIGHEST) 🔴
 **Foundation for a process manager - must be done first**
 
@@ -96,9 +146,11 @@ See [LICENSE](LICENSE) for details.
 - [ ] Implement basic ncurses UI layout (panels/windows for process list)
 - [ ] Add keyboard navigation (arrow keys, page up/down)
 - [ ] Implement process killing/termination functionality (SIGTERM, SIGKILL)
-- [ ] Add process sorting options (by CPU, memory, PID, name)
+- [ ] Add process sorting options (by CPU, memory, PID, name) - use config for default
 - [ ] Display process start time and runtime
 - [ ] Show process priority and nice value
+- [ ] Integrate configuration system - read and apply config values
+- [ ] Use config for refresh rate, default sort, column display
 
 ### Phase 2: System Overview (Priority: HIGH) 🟠
 **Essential system information for monitoring**
@@ -106,9 +158,10 @@ See [LICENSE](LICENSE) for details.
 #### CPU Information
 - [ ] Display CPU model name and architecture
 - [ ] Show CPU cores (physical and logical)
-- [ ] Show CPU usage percentage (overall and per-core)
+- [ ] Show CPU usage percentage (overall and per-core) - respect cpu_show_per_core config
 - [ ] Show CPU load average (1min, 5min, 15min)
 - [ ] Display current CPU frequency
+- [ ] Use config to enable/disable CPU panel display
 
 #### Memory Information
 - [ ] Display total system memory (RAM)
@@ -116,21 +169,26 @@ See [LICENSE](LICENSE) for details.
 - [ ] Display available/free memory
 - [ ] Show cached memory
 - [ ] Display buffer memory
-- [ ] Show swap space (total, used, free)
+- [ ] Show swap space (total, used, free) - respect show_swap config
 - [ ] Display memory usage per process
+- [ ] Use memory_units config for display formatting (KB, MB, GB)
+- [ ] Use config to enable/disable memory panel display
 
 ### Phase 3: Enhanced Process Details (Priority: MEDIUM) 🟡
 **Advanced process information and management**
 
-- [ ] Implement process filtering and searching
-- [ ] Display process parent-child relationships (tree view)
-- [ ] Show process threads count
+- [ ] Implement process filtering and searching - use default_filter config
+- [ ] Display process parent-child relationships (tree view) - respect tree_view_default config
+- [ ] Show process threads count - respect show_threads config
 - [ ] Display process command line arguments
 - [ ] Show process network connections
 - [ ] Display process open files
 - [ ] Show process I/O statistics (read/write bytes)
 - [ ] Display process file descriptors count
 - [ ] Show process shared memory information
+- [ ] Use columns config to show/hide specific columns
+- [ ] Add config option for search case sensitivity
+- [ ] Add config option for maximum search results
 
 ### Phase 4: Advanced System Information (Priority: MEDIUM-LOW) 🟢
 **Additional system monitoring features**
@@ -154,6 +212,10 @@ See [LICENSE](LICENSE) for details.
 - [ ] Display inode usage per filesystem
 - [ ] Show disk temperature (if available)
 - [ ] Display disk health status (SMART data if available)
+- [ ] Use disk_enabled config to enable/disable disk monitoring
+- [ ] Add config option for disk display units (KB, MB, GB, TB)
+- [ ] Add config option for which filesystems to display (filter list)
+- [ ] Add config option for disk temperature units (Celsius/Fahrenheit)
 
 #### Network Information
 - [ ] List all network interfaces
@@ -167,6 +229,10 @@ See [LICENSE](LICENSE) for details.
 - [ ] Show network interface speed and duplex mode
 - [ ] Display routing table information
 - [ ] Show DNS configuration
+- [ ] Use network_enabled config to enable/disable network monitoring
+- [ ] Add config option for network speed units (B/s, KB/s, MB/s, GB/s)
+- [ ] Add config option for which network interfaces to monitor (filter list)
+- [ ] Add config option to show/hide loopback interfaces
 
 ### Phase 5: Advanced Process Features (Priority: LOW) 🔵
 **Nice-to-have advanced process details**
@@ -179,3 +245,4 @@ See [LICENSE](LICENSE) for details.
 ## Author
 
 Written by @frankischilling
+
