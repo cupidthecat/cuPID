@@ -10,12 +10,16 @@ BIN_DIR = bin
 
 # Source files
 MAIN_SRC = $(SRC_DIR)/main.c
+CONFIG_SRC = $(SRC_DIR)/config.c
+PROCESS_SRC = $(SRC_DIR)/process.c
 LIB_SRC = $(LIB_DIR)/cupidconf.c
 
 # Object files
 MAIN_OBJ = $(BUILD_DIR)/main.o
+CONFIG_OBJ = $(BUILD_DIR)/config.o
+PROCESS_OBJ = $(BUILD_DIR)/process.o
 LIB_OBJ = $(BUILD_DIR)/cupidconf.o
-OBJS = $(MAIN_OBJ) $(LIB_OBJ)
+OBJS = $(MAIN_OBJ) $(CONFIG_OBJ) $(PROCESS_OBJ) $(LIB_OBJ)
 
 # Target executable
 TARGET = $(BIN_DIR)/cuPID
@@ -37,6 +41,12 @@ $(TARGET): $(OBJS) | $(BIN_DIR)
 # Compile main.c
 $(MAIN_OBJ): $(MAIN_SRC) $(LIB_DIR)/cupidconf.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(LIB_DIR) -c $(MAIN_SRC) -o $(MAIN_OBJ)
+
+$(CONFIG_OBJ): $(CONFIG_SRC) $(SRC_DIR)/config.h $(LIB_DIR)/cupidconf.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(LIB_DIR) -c $(CONFIG_SRC) -o $(CONFIG_OBJ)
+
+$(PROCESS_OBJ): $(PROCESS_SRC) $(SRC_DIR)/process.h $(SRC_DIR)/config.h $(LIB_DIR)/cupidconf.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(LIB_DIR) -c $(PROCESS_SRC) -o $(PROCESS_OBJ)
 
 # Compile cupidconf.c
 $(LIB_OBJ): $(LIB_SRC) $(LIB_DIR)/cupidconf.h | $(BUILD_DIR)
