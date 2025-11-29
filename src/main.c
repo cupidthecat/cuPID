@@ -13,135 +13,18 @@ written by @frankischilling
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
+#include <dirent.h>
+#include <unistd.h>
 #include <ncurses.h>
 #include "config.h"
 #include "process.h"
+#include "cpu.h"
+#include "memory.h"
 
 static double timespec_elapsed(struct timespec prev, struct timespec current) {
     double sec = (double)(current.tv_sec - prev.tv_sec);
     double nsec = (double)(current.tv_nsec - prev.tv_nsec) / 1e9;
     return sec + nsec;
-}
-
-static double read_cpu_usage_percent(void) {
-    static unsigned long long prev_total = 0;
-    static unsigned long long prev_idle = 0;
-    static bool have_prev = false;
-
-    FILE *fp = fopen("/proc/stat", "r");
-    if (!fp)
-        return -1.0;
-
-    char line[256];
-    if (!fgets(line, sizeof(line), fp)) {
-        fclose(fp);
-        return -1.0;
-    }
-    fclose(fp);
-
-    // Format: cpu  user nice system idle iowait irq softirq steal guest guest_nice
-    char cpu_label[5];
-    unsigned long long user, nice, system, idle, iowait, irq, softirq, steal;
-    int parsed = sscanf(line, "%4s %llu %llu %llu %llu %llu %llu %llu %llu",
-                        cpu_label, &user, &nice, &system, &idle,
-                        &iowait, &irq, &softirq, &steal);
-    if (parsed < 5)
-        return -1.0;
-
-    unsigned long long idle_all = idle + iowait;
-    unsigned long long non_idle = user + nice + system + irq + softirq + steal;
-    unsigned long long total = idle_all + non_idle;
-
-    if (!have_prev) {
-        prev_total = total;
-        prev_idle = idle_all;
-        have_prev = true;
-        return -1.0;
-    }
-
-    unsigned long long total_delta = total - prev_total;
-    unsigned long long idle_delta = idle_all - prev_idle;
-    prev_total = total;
-    prev_idle = idle_all;
-
-    if (total_delta == 0)
-        return -1.0;
-
-    double usage = (double)(total_delta - idle_delta) / (double)total_delta * 100.0;
-    if (usage < 0.0)
-        usage = 0.0;
-    if (usage > 100.0)
-        usage = 100.0;
-    return usage;
-}
-
-typedef struct {
-    long total;
-    long used;
-    long free;
-    long available;
-    long cached;
-    long buffers;
-    long swap_total;
-    long swap_used;
-    long swap_free;
-} mem_info_t;
-
-static bool read_full_mem_info(mem_info_t *info) {
-    if (!info)
-        return false;
-
-    memset(info, 0, sizeof(mem_info_t));
-
-    FILE *fp = fopen("/proc/meminfo", "r");
-    if (!fp)
-        return false;
-
-    char key[64];
-    long value = 0;
-    char unit[32];
-    int found = 0;
-
-    while (fscanf(fp, "%63s %ld %31s", key, &value, unit) == 3) {
-        if (strcmp(key, "MemTotal:") == 0) {
-            info->total = value;
-            found++;
-        } else if (strcmp(key, "MemFree:") == 0) {
-            info->free = value;
-            found++;
-        } else if (strcmp(key, "MemAvailable:") == 0) {
-            info->available = value;
-            found++;
-        } else if (strcmp(key, "Cached:") == 0) {
-            info->cached = value;
-            found++;
-        } else if (strcmp(key, "Buffers:") == 0) {
-            info->buffers = value;
-            found++;
-        } else if (strcmp(key, "SwapTotal:") == 0) {
-            info->swap_total = value;
-            found++;
-        } else if (strcmp(key, "SwapFree:") == 0) {
-            info->swap_free = value;
-            found++;
-        }
-        if (found >= 7)
-            break;
-    }
-    fclose(fp);
-
-    if (info->total <= 0)
-        return false;
-
-    info->used = info->total - info->available;
-    if (info->used < 0)
-        info->used = 0;
-
-    info->swap_used = info->swap_total - info->swap_free;
-    if (info->swap_used < 0)
-        info->swap_used = 0;
-
-    return true;
 }
 
 static int get_column_width(const char *column, int remaining_space, int remaining_columns) {
@@ -163,91 +46,6 @@ static int get_column_width(const char *column, int remaining_space, int remaini
         return 8;
     return 12;
 }
-
-static void format_size_kb_auto(long kb, char *buffer, size_t len) {
-    if (!buffer || len == 0)
-        return;
-    const double size = (double)kb;
-    if (size >= 1024 * 1024) {
-        snprintf(buffer, len, "%.1fG", size / (1024 * 1024));
-    } else if (size >= 1024) {
-        snprintf(buffer, len, "%.1fM", size / 1024);
-    } else {
-        snprintf(buffer, len, "%ldK", kb);
-    }
-}
-
-static void format_size_kb_units(long kb, const cupid_config *config, char *buffer, size_t len) {
-    if (!buffer || len == 0)
-        return;
-    if (!config || !config->memory_units[0]) {
-        format_size_kb_auto(kb, buffer, len);
-        return;
-    }
-
-    if (strcasecmp(config->memory_units, "kb") == 0) {
-        snprintf(buffer, len, "%ldK", kb);
-    } else if (strcasecmp(config->memory_units, "mb") == 0) {
-        double mb = (double)kb / 1024.0;
-        snprintf(buffer, len, "%.1fM", mb);
-    } else if (strcasecmp(config->memory_units, "gb") == 0) {
-        double gb = (double)kb / (1024.0 * 1024.0);
-        snprintf(buffer, len, "%.2fG", gb);
-    } else { // auto
-        format_size_kb_auto(kb, buffer, len);
-    }
-}
-
-static void render_memory_panel(const cupid_config *config, const mem_info_t *mem, int start_row, int cols) {
-    (void)cols; // unused for now
-    if (!mem)
-        return;
-
-    int y = start_row;
-    char buf[32];
-
-    if (has_colors())
-        attron(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(y++, 2, "Memory");
-    if (has_colors())
-        attroff(COLOR_PAIR(1) | A_BOLD);
-
-    double mem_percent = mem->total > 0 ? (double)mem->used / (double)mem->total * 100.0 : 0.0;
-    format_size_kb_units(mem->total, config, buf, sizeof(buf));
-    mvprintw(y++, 2, "  Total: %s", buf);
-    format_size_kb_units(mem->used, config, buf, sizeof(buf));
-    mvprintw(y++, 2, "  Used:  %s (%.1f%%)", buf, mem_percent);
-    if (config->memory_show_free) {
-        format_size_kb_units(mem->free, config, buf, sizeof(buf));
-        mvprintw(y++, 2, "  Free:  %s", buf);
-    }
-    if (config->memory_show_available) {
-        format_size_kb_units(mem->available, config, buf, sizeof(buf));
-        mvprintw(y++, 2, "  Avail: %s", buf);
-    }
-    if (config->memory_show_cached) {
-        format_size_kb_units(mem->cached, config, buf, sizeof(buf));
-        mvprintw(y++, 2, "  Cached: %s", buf);
-    }
-    if (config->memory_show_buffers) {
-        format_size_kb_units(mem->buffers, config, buf, sizeof(buf));
-        mvprintw(y++, 2, "  Buffers: %s", buf);
-    }
-
-    if (config->show_swap && mem->swap_total > 0) {
-        double swap_percent = mem->swap_total > 0
-                                  ? (double)mem->swap_used / (double)mem->swap_total * 100.0
-                                  : 0.0;
-        mvprintw(y++, 2, "  Swap:");
-        format_size_kb_units(mem->swap_total, config, buf, sizeof(buf));
-        mvprintw(y++, 2, "    Total: %s", buf);
-        format_size_kb_units(mem->swap_used, config, buf, sizeof(buf));
-        mvprintw(y++, 2, "    Used:  %s (%.1f%%)", buf, swap_percent);
-        format_size_kb_units(mem->swap_free, config, buf, sizeof(buf));
-        mvprintw(y++, 2, "    Free:  %s", buf);
-    }
-}
-
 static void format_column_value(const cupid_config *config,
                                 const process_info *info,
                                 const char *column,
@@ -664,14 +462,63 @@ cleanup:
     free(depths);
 }
 
+typedef enum {
+    VIEW_CPU_MEMORY = 0,  // Detailed CPU and memory panels
+    VIEW_PROCESSES = 1    // Minimal CPU/memory, more processes
+} view_mode_t;
+
+static void render_minimal_cpu_memory(const cupid_config *config,
+                                      double cpu_usage,
+                                      const mem_info_t *mem_info,
+                                      const cpu_info_t *cpu_info,
+                                      int start_row,
+                                      int cols) {
+    (void)cols; // unused for now
+    int y = start_row;
+    int x = 2;
+    
+    // Minimal CPU info
+    if (cpu_info && cpu_usage >= 0.0) {
+        if (has_colors())
+            attron(COLOR_PAIR(1) | A_BOLD);
+        mvprintw(y, x, "CPU:");
+        if (has_colors())
+            attroff(COLOR_PAIR(1) | A_BOLD);
+        mvprintw(y, x + 5, "%.1f%%", cpu_usage);
+        if (cpu_info->load_avg_1min > 0.0) {
+            mvprintw(y, x + 15, "Load: %.2f", cpu_info->load_avg_1min);
+        }
+        y++;
+    }
+    
+    // Minimal Memory info
+    if (mem_info && mem_info->total > 0) {
+        double mem_percent = (double)mem_info->used / (double)mem_info->total * 100.0;
+        char buf[32];
+        if (has_colors())
+            attron(COLOR_PAIR(1) | A_BOLD);
+        mvprintw(y, x, "Mem:");
+        if (has_colors())
+            attroff(COLOR_PAIR(1) | A_BOLD);
+        format_size_kb_units(mem_info->used, config, buf, sizeof(buf));
+        mvprintw(y, x + 5, "%s/", buf);
+        format_size_kb_units(mem_info->total, config, buf, sizeof(buf));
+        mvprintw(y, x + 12, "%s", buf);
+        mvprintw(y, x + 20, "(%.1f%%)", mem_percent);
+        y++;
+    }
+}
+
 static void render_ui(const cupid_config *config,
                       const process_list *list,
                       double cpu_usage,
                       const mem_info_t *mem_info,
+                      const cpu_info_t *cpu_info,
                       int selected_row,
                       int scroll_offset,
                       int *visible_rows,
-                      int *total_rows) {
+                      int *total_rows,
+                      view_mode_t view_mode) {
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
     (void)cols;
@@ -684,25 +531,109 @@ static void render_ui(const cupid_config *config,
              config->sort_reverse ? " (desc)" : "",
              list->count);
 
-    if (config->show_cpu_panel && cpu_usage >= 0.0) {
-        mvprintw(2, 2, "CPU: %.1f%%", cpu_usage);
-    } else if (config->show_cpu_panel) {
-        mvprintw(2, 2, "CPU: --.-%%");
-    }
-
-    int panel_start_row = 3;
-    if (config->show_memory_panel && mem_info) {
-        render_memory_panel(config, mem_info, panel_start_row, cols);
-        int mem_panel_height = 8; // base height
-        if (config->show_swap)
-            mem_panel_height += 4; // add swap section
-        panel_start_row += mem_panel_height + 1; // +1 for spacing
+    int panel_start_row = 2;
+    
+    // Render based on view mode
+    if (view_mode == VIEW_PROCESSES) {
+        // Process view: minimal CPU/memory info
+        render_minimal_cpu_memory(config, cpu_usage, mem_info, cpu_info, panel_start_row, cols);
+        panel_start_row += 2; // Minimal view takes 2 lines
     } else {
-        mvprintw(panel_start_row, 2, "Columns: %s", config->columns);
-        panel_start_row += 2;
+        // CPU/Memory view: detailed panels
+        // CPU Panel
+        if (config->show_cpu_panel && cpu_info) {
+            render_cpu_panel(config, cpu_info, panel_start_row, cols);
+            // Calculate CPU panel height - must match render_cpu_panel exactly
+            int cpu_panel_height = 3; // base: title, model, cores
+            // Load average now takes 3 lines (1min, 5min, 15min)
+            if (cpu_info->load_avg_1min > 0.0 || cpu_info->load_avg_5min > 0.0 || cpu_info->load_avg_15min > 0.0) {
+                cpu_panel_height += 3;
+            }
+            if (config->cpu_show_per_core && cpu_info->logical_cores > 0) {
+                // Blank line after load average (only if per-core is enabled)
+                cpu_panel_height += 1;
+                // Per-core usage: column-based layout
+                // Use same calculation as in render_cpu_panel
+                int load_label_width = 11; // "  Load 15m:"
+                int bar_start_x = 2 + load_label_width; // x + load_label_width
+                int label_width = 4;
+                int bar_width = 10;
+                int percent_width = 6;
+                int spacing = 1;
+                int core_width = label_width + bar_width + percent_width + spacing; // 21
+                int num_columns = (cols - bar_start_x - 4) / core_width;
+                if (num_columns < 1) num_columns = 1;
+                if (num_columns > cpu_info->logical_cores) num_columns = cpu_info->logical_cores;
+                if (num_columns > 8) num_columns = 8;
+                int num_rows = (cpu_info->logical_cores + num_columns - 1) / num_columns;
+                cpu_panel_height += num_rows; // Usage rows
+                // Blank line between usage and temperatures
+                cpu_panel_height += 1;
+                // Temperatures (if available): same column layout
+                bool has_temps = false;
+                if (cpu_info->core_temps) {
+                    for (int i = 0; i < cpu_info->logical_cores; i++) {
+                        if (cpu_info->core_temps[i] > -500.0) {
+                            has_temps = true;
+                            break;
+                        }
+                    }
+                }
+                if (has_temps) {
+                    cpu_panel_height += num_rows; // Temperature rows
+                }
+            } else {
+                if (cpu_info->core_temps) {
+                    double avg_temp = -999.0;
+                    int temp_count = 0;
+                    for (int i = 0; i < cpu_info->logical_cores; i++) {
+                        if (cpu_info->core_temps[i] > -500.0) {
+                            if (avg_temp < -500.0) avg_temp = 0.0;
+                            avg_temp += cpu_info->core_temps[i];
+                            temp_count++;
+                        }
+                    }
+                    if (temp_count > 0) cpu_panel_height++;
+                }
+                if (cpu_info->core_freqs) {
+                    int freq_count = 0;
+                    for (int i = 0; i < cpu_info->logical_cores; i++) {
+                        if (cpu_info->core_freqs[i] > 0.0) {
+                            freq_count++;
+                            break;
+                        }
+                    }
+                    if (freq_count > 0) cpu_panel_height++;
+                }
+            }
+            panel_start_row += cpu_panel_height + 1; // +1 for spacing
+        } else if (config->show_cpu_panel && cpu_usage >= 0.0) {
+            // Fallback to simple CPU display
+            mvprintw(panel_start_row, 2, "CPU: %.1f%%", cpu_usage);
+            panel_start_row += 2;
+        } else if (config->show_cpu_panel) {
+            mvprintw(panel_start_row, 2, "CPU: --.-%%");
+            panel_start_row += 2;
+        }
+
+        // Memory Panel
+        if (config->show_memory_panel && mem_info) {
+            render_memory_panel(config, mem_info, panel_start_row, cols);
+            int mem_panel_height = 8; // base height
+            if (config->show_swap)
+                mem_panel_height += 4; // add swap section
+            panel_start_row += mem_panel_height + 1; // +1 for spacing
+        } else if (!config->show_cpu_panel) {
+            mvprintw(panel_start_row, 2, "Columns: %s", config->columns);
+            panel_start_row += 2;
+        }
     }
 
-    mvprintw(rows - 2, 2, "Press 'q' to exit. Use Arrow up / down to move, PgUp/PgDn to scroll.");
+    if (view_mode == VIEW_PROCESSES) {
+        mvprintw(rows - 2, 2, "Press 'q' to exit, 'v' to switch view. Use Arrow up / down to move, PgUp/PgDn to scroll.");
+    } else {
+        mvprintw(rows - 2, 2, "Press 'q' to exit, 'v' to switch view. Use Arrow up / down to move, PgUp/PgDn to scroll.");
+    }
 
     // Adjust table start based on panels
     int table_start = panel_start_row;
@@ -770,6 +701,10 @@ int main(int argc, char *argv[]) {
     double last_cpu_usage = -1.0;
     mem_info_t last_mem_info = {0};
     bool have_mem_info = false;
+    cpu_info_t cpu_info;
+    cpu_info_init(&cpu_info);
+    bool have_cpu_info = false;
+    view_mode_t view_mode = VIEW_CPU_MEMORY; // Start in CPU/Memory view
     while (running) {
         bool selection_changed = false;
         bool data_changed = false;
@@ -786,8 +721,11 @@ int main(int argc, char *argv[]) {
                 have_data = true;
                 last_data_refresh = now;
                 data_changed = true;
-                if (config.show_cpu_panel)
+                if (config.show_cpu_panel) {
                     last_cpu_usage = read_cpu_usage_percent();
+                    if (read_full_cpu_info(&cpu_info) == 0)
+                        have_cpu_info = true;
+                }
                 if (config.show_memory_panel) {
                     if (read_full_mem_info(&last_mem_info))
                         have_mem_info = true;
@@ -798,6 +736,10 @@ int main(int argc, char *argv[]) {
         int ch = getch();
         if (ch == 'q' || ch == 'Q') {
             running = false;
+        } else if (ch == 'v' || ch == 'V') {
+            // Toggle view mode
+            view_mode = (view_mode == VIEW_CPU_MEMORY) ? VIEW_PROCESSES : VIEW_CPU_MEMORY;
+            selection_changed = true; // Force redraw
         } else if (ch == KEY_UP) {
             if (selected_row > 0)
                 selected_row--;
@@ -831,12 +773,14 @@ int main(int argc, char *argv[]) {
             if (scroll_offset < 0)
                 scroll_offset = 0;
 
-            render_ui(&config, &plist, last_cpu_usage, have_mem_info ? &last_mem_info : NULL, selected_row, scroll_offset, &visible_rows, &total_rows);
+            render_ui(&config, &plist, last_cpu_usage, have_mem_info ? &last_mem_info : NULL,
+                     have_cpu_info ? &cpu_info : NULL, selected_row, scroll_offset, &visible_rows, &total_rows, view_mode);
         }
     }
 
     process_list_free(&plist);
     process_cache_free(&cache);
+    cpu_info_free(&cpu_info);
     endwin();
     return 0;
 }

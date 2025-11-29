@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <errno.h>
+#include <limits.h>
 
 #include "cupidconf.h"
 
@@ -150,7 +155,7 @@ void config_apply_defaults(cupid_config *cfg) {
     cfg->tree_view_default = TREE_VIEW_FLAT;
     cfg->highlight_selected = true;
 
-    cfg->cpu_show_per_core = false;
+    cfg->cpu_show_per_core = true; // Show per-core info by default
     copy_string(cfg->memory_units, sizeof(cfg->memory_units), "auto", "auto");
     cfg->show_swap = true;
     cfg->disk_enabled = false;
@@ -267,6 +272,80 @@ static void apply_overrides_from_conf(cupid_config *cfg, cupidconf_t *conf) {
     }
 }
 
+static int create_default_config(const char *path) {
+    if (!path)
+        return -1;
+
+    // Create directory if it doesn't exist
+    char dir_path[PATH_MAX];
+    strncpy(dir_path, path, sizeof(dir_path) - 1);
+    dir_path[sizeof(dir_path) - 1] = '\0';
+    
+    // Find last '/' and create directory path
+    char *last_slash = strrchr(dir_path, '/');
+    if (last_slash) {
+        *last_slash = '\0';
+        // Create directory with mode 0755
+        if (mkdir(dir_path, 0755) != 0 && errno != EEXIST) {
+            return -1;
+        }
+    }
+
+    FILE *fp = fopen(path, "w");
+    if (!fp)
+        return -1;
+
+    fprintf(fp, "# cuPID Configuration File\n");
+    fprintf(fp, "# Edit this file to customize cuPID's behavior\n");
+    fprintf(fp, "# Lines starting with # are comments\n\n");
+    
+    fprintf(fp, "# Refresh rate in milliseconds\n");
+    fprintf(fp, "refresh_rate = 1000\n\n");
+    
+    fprintf(fp, "# Default sort column (cpu, memory, pid, name, command)\n");
+    fprintf(fp, "default_sort = cpu\n");
+    fprintf(fp, "sort_reverse = false\n\n");
+    
+    fprintf(fp, "# UI Settings\n");
+    fprintf(fp, "show_header = true\n");
+    fprintf(fp, "color_enabled = true\n");
+    fprintf(fp, "max_processes = 0\n");
+    fprintf(fp, "ui_layout = detailed\n\n");
+    
+    fprintf(fp, "# Panel Settings\n");
+    fprintf(fp, "show_cpu_panel = true\n");
+    fprintf(fp, "show_memory_panel = true\n");
+    fprintf(fp, "panel_height = 3\n");
+    fprintf(fp, "process_list_height = -1\n\n");
+    
+    fprintf(fp, "# Process Display\n");
+    fprintf(fp, "columns = pid,user,cpu,mem,command,threads\n");
+    fprintf(fp, "default_filter = \n");
+    fprintf(fp, "show_threads = false\n");
+    fprintf(fp, "tree_view_default = flat\n");
+    fprintf(fp, "highlight_selected = true\n");
+    fprintf(fp, "command_max_width = -1\n");
+    fprintf(fp, "cpu_group_mode = flat\n\n");
+    
+    fprintf(fp, "# CPU Settings\n");
+    fprintf(fp, "cpu_show_per_core = true\n\n");
+    
+    fprintf(fp, "# Memory Settings\n");
+    fprintf(fp, "memory_units = auto\n");
+    fprintf(fp, "show_swap = true\n");
+    fprintf(fp, "memory_show_free = true\n");
+    fprintf(fp, "memory_show_available = true\n");
+    fprintf(fp, "memory_show_cached = true\n");
+    fprintf(fp, "memory_show_buffers = true\n\n");
+    
+    fprintf(fp, "# Future Features (not yet implemented)\n");
+    fprintf(fp, "disk_enabled = false\n");
+    fprintf(fp, "network_enabled = false\n");
+
+    fclose(fp);
+    return 0;
+}
+
 int config_load(cupid_config *cfg, const char *path) {
     if (!cfg || !path)
         return -1;
@@ -275,10 +354,19 @@ int config_load(cupid_config *cfg, const char *path) {
 
     cupidconf_t *conf = cupidconf_load(path);
     if (!conf) {
-        fprintf(stderr,
-                "cuPID: Failed to load config file '%s'. Using built‑in defaults.\n",
-                path);
-        return -1;
+        // Try to create default config file
+        if (create_default_config(path) == 0) {
+            fprintf(stderr, "cuPID: Created default config file at %s\n", path);
+            // Try loading again
+            conf = cupidconf_load(path);
+        }
+        
+        if (!conf) {
+            fprintf(stderr,
+                    "cuPID: Failed to load config file '%s'. Using built‑in defaults.\n",
+                    path);
+            return -1;
+        }
     }
 
     apply_overrides_from_conf(cfg, conf);

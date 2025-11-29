@@ -10,6 +10,18 @@ cuPID is a lightweight process manager that provides an ncurses-based interface 
 
 - ncurses-based terminal UI
 - Live process list with CPU and memory usage
+- **Dual view modes**: Toggle between detailed CPU/Memory view and process-focused view
+- **Comprehensive CPU monitoring**: 
+  - Per-core CPU usage with visual progress bars
+  - CPU temperatures for all cores
+  - CPU frequencies
+  - Load averages (1min, 5min, 15min) with visual bars
+  - CPU model and core information
+- **Detailed memory monitoring**:
+  - Total, used, free, and available memory
+  - Cached and buffer memory
+  - Swap space information
+  - Configurable memory display units (KB, MB, GB, auto)
 - Configuration file support via cupidconf
 - Automatic configuration file setup in `~/.config/cuPID/config.conf`
 
@@ -61,7 +73,12 @@ Run the program:
 ./bin/cuPID
 ```
 
-- Use the live UI to monitor processes; press `q` to exit.
+- Use the live UI to monitor processes
+- **Keyboard shortcuts**:
+  - `q` or `Q` - Exit the program
+  - `v` or `V` - Toggle between CPU/Memory view and Process view
+  - Arrow Up/Down - Navigate through process list
+  - Page Up/Page Down - Scroll through process list
 
 ## Configuration
 
@@ -124,7 +141,8 @@ All options are optional; if you omit them, cuPID falls back to sensible default
 - **`show_cpu_panel`**, **`show_memory_panel`**  
   - **What they do**: Toggle the CPU and memory summary panels at the top of the UI.  
   - **Type**: boolean  
-  - **Default**: `true` for both.
+  - **Default**: `true` for both.  
+  - **Note**: When disabled, the UI shows more space for the process list.
 
 - **`panel_height`**, **`process_list_height`**  
   - **What they do**: Control how many rows are reserved for the system info panels and the process list.  
@@ -193,9 +211,13 @@ All options are optional; if you omit them, cuPID falls back to sensible default
 #### System Monitoring
 
 - **`cpu_show_per_core`**  
-  - **What it does**: Intended to toggle per-core CPU display; currently parsed but not yet used.  
+  - **What it does**: Toggles detailed per-core CPU display in the CPU panel. When enabled, shows individual usage bars, temperatures, and frequencies for each CPU core in a compact grid layout.  
   - **Type**: boolean  
-  - **Default**: `false`.
+  - **Default**: `true`.  
+  - **Behavior**:  
+    - When `true`: Shows all cores (C0, C1, C2, etc.) with usage bars, temperatures, and frequencies in a column-based grid layout  
+    - When `false`: Shows only overall CPU usage, load averages, and average temperature/frequency  
+  - **Note**: The per-core display automatically adjusts to terminal width, showing multiple cores per row for compact viewing.
 
 - **`memory_units`**  
   - **What it does**: Controls the units used for memory size columns (`rss`, `vms`) and the memory panel.  
@@ -211,6 +233,11 @@ All options are optional; if you omit them, cuPID falls back to sensible default
   - **What they do**: Control which detailed fields are shown in the memory panel.  
   - **Type**: boolean (each)  
   - **Default**: `true` for all.  
+  - **Behavior**:  
+    - `memory_show_free`: Shows free memory (unused RAM)  
+    - `memory_show_available`: Shows available memory (memory available for new processes)  
+    - `memory_show_cached`: Shows cached memory (file system cache)  
+    - `memory_show_buffers`: Shows buffer memory (block device buffers)  
   - **Example**: set `memory_show_cached = false` to hide the cached line if you prefer a shorter panel.
 
 - **`show_swap`**  
@@ -222,6 +249,22 @@ All options are optional; if you omit them, cuPID falls back to sensible default
   - **What they do**: Reserved for future disk and network panels; currently parsed but not used.  
   - **Type**: boolean  
   - **Defaults**: `false` for both.
+
+## View Modes
+
+cuPID supports two view modes that you can toggle with the `v` key:
+
+### CPU/Memory View (Default)
+- **Detailed CPU panel**: Shows CPU model, core counts, load averages with progress bars, and per-core usage/temperatures/frequencies (when `cpu_show_per_core = true`)
+- **Detailed memory panel**: Shows total, used, free, available, cached, buffers, and swap information
+- **Less process list space**: More vertical space is used for system information
+
+### Process View
+- **Minimal CPU info**: Shows only overall CPU usage percentage and load average (1 line)
+- **Minimal memory info**: Shows only used/total memory with percentage (1 line)
+- **More process list space**: Maximum vertical space for the process list
+
+Press `v` or `V` at any time to switch between these views.
 
 ## Building from Source
 
@@ -273,7 +316,7 @@ See [LICENSE](LICENSE) for details.
 - [x] `highlight_selected` - Highlight selected process (true/false) (default: true)
 
 #### System Monitoring Configuration
-- [x] `cpu_show_per_core` - Show per-core CPU usage (true/false) (default: false)
+- [x] `cpu_show_per_core` - Show per-core CPU usage (true/false) (default: true)
 - [x] `memory_units` - Memory display units (KB, MB, GB, auto) (default: auto)
 - [x] `show_swap` - Show swap space information (true/false) (default: true)
 - [x] `disk_enabled` - Enable disk monitoring (true/false) (default: false)
@@ -308,23 +351,27 @@ See [LICENSE](LICENSE) for details.
 **Essential system information for monitoring**
 
 #### CPU Information
-- [ ] Display CPU model name and architecture
-- [ ] Show CPU cores (physical and logical)
-- [ ] Show CPU usage percentage (overall and per-core) - respect cpu_show_per_core config
-- [ ] Show CPU load average (1min, 5min, 15min)
-- [ ] Display current CPU frequency
-- [ ] Use config to enable/disable CPU panel display
+- [x] Display CPU model name and architecture
+- [x] Show CPU cores (physical and logical)
+- [x] Show CPU usage percentage (overall and per-core) - respect cpu_show_per_core config
+- [x] Show CPU load average (1min, 5min, 15min) with visual progress bars
+- [x] Display current CPU frequency (per-core)
+- [x] Display CPU temperature (per-core, if available)
+- [x] Use config to enable/disable CPU panel display
+- [x] Compact grid layout for per-core display (column-based, multiple cores per row)
+- [x] View toggle between detailed CPU/Memory view and process-focused view
 
 #### Memory Information
-- [ ] Display total system memory (RAM)
-- [ ] Show used memory and percentage
-- [ ] Display available/free memory
-- [ ] Show cached memory
-- [ ] Display buffer memory
-- [ ] Show swap space (total, used, free) - respect show_swap config
-- [ ] Display memory usage per process
-- [ ] Use memory_units config for display formatting (KB, MB, GB)
-- [ ] Use config to enable/disable memory panel display
+- [x] Display total system memory (RAM)
+- [x] Show used memory and percentage
+- [x] Display available/free memory (configurable)
+- [x] Show cached memory (configurable)
+- [x] Display buffer memory (configurable)
+- [x] Show swap space (total, used, free) - respect show_swap config
+- [x] Display memory usage per process
+- [x] Use memory_units config for display formatting (KB, MB, GB, auto)
+- [x] Use config to enable/disable memory panel display
+- [x] Configurable display of individual memory fields (free, available, cached, buffers)
 
 ### Phase 3: Enhanced Process Details (Priority: MEDIUM) 🟡
 **Advanced process information and management**
@@ -346,7 +393,7 @@ See [LICENSE](LICENSE) for details.
 **Additional system monitoring features**
 
 #### Advanced CPU Information
-- [ ] Display CPU temperature (if available)
+- [x] Display CPU temperature (if available) - per-core temperatures shown in detailed view
 - [ ] Display CPU cache information (L1, L2, L3)
 - [ ] Show CPU flags/features
 
