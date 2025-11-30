@@ -680,6 +680,9 @@ int main(int argc, char *argv[]) {
     keypad(stdscr, TRUE);
     timeout(100); // short poll for input; data refresh is timed separately
     curs_set(0);
+    
+    // Enable mouse support for proper wheel handling
+    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
 
     process_cache cache;
     process_cache_init(&cache);
@@ -705,6 +708,8 @@ int main(int argc, char *argv[]) {
     cpu_info_init(&cpu_info);
     bool have_cpu_info = false;
     view_mode_t view_mode = VIEW_CPU_MEMORY; // Start in CPU/Memory view
+    struct timespec last_key_input = {0, 0};
+    const double key_debounce_interval = 0.05; // 50ms debounce for key inputs
     while (running) {
         bool selection_changed = false;
         bool data_changed = false;
@@ -740,14 +745,45 @@ int main(int argc, char *argv[]) {
             // Toggle view mode
             view_mode = (view_mode == VIEW_CPU_MEMORY) ? VIEW_PROCESSES : VIEW_CPU_MEMORY;
             selection_changed = true; // Force redraw
+        } else if (ch == KEY_MOUSE) {
+            // Handle mouse events, including wheel scrolling
+            MEVENT event;
+            if (getmouse(&event) == OK) {
+                // Handle mouse wheel up (BUTTON4) - check both PRESSED and CLICKED
+                if ((event.bstate & BUTTON4_PRESSED) || (event.bstate & BUTTON4_CLICKED)) {
+                    // Mouse wheel up - move up 1 entry
+                    if (selected_row > 0)
+                        selected_row--;
+                    selection_changed = true;
+                    last_key_input = now; // Update debounce timer
+                } 
+                // Handle mouse wheel down (BUTTON5) - check both PRESSED and CLICKED
+                else if ((event.bstate & BUTTON5_PRESSED) || (event.bstate & BUTTON5_CLICKED)) {
+                    // Mouse wheel down - move down 1 entry
+                    if (selected_row + 1 < total_rows)
+                        selected_row++;
+                    selection_changed = true;
+                    last_key_input = now; // Update debounce timer
+                }
+            }
         } else if (ch == KEY_UP) {
-            if (selected_row > 0)
-                selected_row--;
-            selection_changed = true;
+            // Debounce: ignore if too soon after last key input (likely from mouse wheel)
+            double key_elapsed = timespec_elapsed(last_key_input, now);
+            if (key_elapsed >= key_debounce_interval || last_key_input.tv_sec == 0) {
+                if (selected_row > 0)
+                    selected_row--;
+                selection_changed = true;
+                last_key_input = now;
+            }
         } else if (ch == KEY_DOWN) {
-            if (selected_row + 1 < total_rows)
-                selected_row++;
-            selection_changed = true;
+            // Debounce: ignore if too soon after last key input (likely from mouse wheel)
+            double key_elapsed = timespec_elapsed(last_key_input, now);
+            if (key_elapsed >= key_debounce_interval || last_key_input.tv_sec == 0) {
+                if (selected_row + 1 < total_rows)
+                    selected_row++;
+                selection_changed = true;
+                last_key_input = now;
+            }
         } else if (ch == KEY_PPAGE) { // Page Up
             selected_row -= visible_rows > 0 ? visible_rows : 1;
             if (selected_row < 0)
